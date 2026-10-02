@@ -148,6 +148,36 @@ button{cursor:pointer}
     </div>
   </section>
 
+  <section id="rescue" class="screen home">
+    <div class="topbar"><button class="back" onclick="show('home')">‹</button><div class="title">救助要請</div><div class="mini-logo">MAMO</div></div>
+    <div class="content" style="padding-top:18px">
+      <div class="alert" style="margin:0 0 14px">🚨 救助要請を行います</div>
+      <div class="card">
+        <div class="step-title" style="font-size:18px">現在の状況を確認</div>
+        <div class="field"><label>お名前</label><input id="rescueName" placeholder="登録した名前"></div>
+        <div class="field"><label>救助内容</label><textarea id="rescueDetail" placeholder="例）建物内に閉じ込められています／けが人がいます"></textarea></div>
+        <div class="field"><label>救助時の配慮事項</label><textarea id="rescueCare" placeholder="登録済みの配慮事項など"></textarea></div>
+        <div class="id-box">📍 現在地：デモ位置情報（〇〇地区付近）<br>距離：自治体側で受信時に表示</div>
+      </div>
+      <div class="card">
+        <b>送信される情報</b>
+        <div style="font-size:13px;line-height:1.9;margin-top:8px">・救助要請時刻<br>・登録者名<br>・現在地／位置情報<br>・救助内容<br>・救助時の配慮事項</div>
+      </div>
+      <button class="primary" style="background:linear-gradient(90deg,#e52f2f,#f04b42)" onclick="submitRescue()">🚨 救助要請を送信</button>
+      <button class="secondary" onclick="show('home')">キャンセル</button>
+    </div>
+  </section>
+
+  <section id="rescueSent" class="screen">
+    <div class="center" style="min-height:780px">
+      <div style="width:90px;height:90px;border-radius:50%;background:#e8f7ef;color:#0b9c67;display:flex;align-items:center;justify-content:center;font-size:46px;font-weight:900">✓</div>
+      <div class="step-title" style="margin-top:22px">救助要請を送信しました</div>
+      <p style="line-height:1.8;font-size:14px">自治体のMAMO管理画面へ<br><b>救助要請が届く想定です。</b></p>
+      <div class="card" style="width:100%;text-align:left"><b>受付内容</b><div id="sentSummary" style="font-size:13px;line-height:1.8;margin-top:8px"></div></div>
+      <button class="primary" onclick="show('home')">ホームへ戻る</button>
+    </div>
+  </section>
+
   <section id="home" class="screen home">
     <div class="topbar"><button class="back" onclick="show('login')">☰</button><div class="title">ホーム</div><div class="mini-logo">♧</div></div>
     <div class="alert">⚠　〇〇地区　震度5強</div>
@@ -155,7 +185,7 @@ button{cursor:pointer}
     <div class="status-grid">
       <button class="status-btn safe" onclick="toast('無事として登録しました')">●<br>無事</button>
       <button class="status-btn danger" onclick="toast('被害ありとして登録しました')">▲<br>被害あり</button>
-      <button class="status-btn help" onclick="toast('救助要請を開始します')">SOS<br>救助要請</button>
+      <button class="status-btn help" onclick="openRescue()">SOS<br>救助要請</button>
     </div>
     <div class="family">
       <b>家族グループ</b>
@@ -177,7 +207,16 @@ button{cursor:pointer}
 </div>
 <div id="toast" class="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
 <script>
+function getSupabaseClient(){
+  if(window.MAMO_SUPABASE_URL && window.MAMO_SUPABASE_ANON_KEY && window.supabase){
+    return window.supabase.createClient(window.MAMO_SUPABASE_URL, window.MAMO_SUPABASE_ANON_KEY);
+  }
+  return null;
+}
+
 function show(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -193,6 +232,67 @@ function finish(){
   show('home');
   toast('登録が完了しました（デモ）');
 }
+function openRescue(){
+  const name=localStorage.getItem('mamo_demo_name')||'あなた';
+  document.getElementById('rescueName').value=name;
+  document.getElementById('rescueDetail').value='';
+  document.getElementById('rescueCare').value='';
+  show('rescue');
+}
+function submitRescue(){
+  const name=document.getElementById('rescueName').value.trim()||'あなた';
+  const detail=document.getElementById('rescueDetail').value.trim()||'救助が必要です';
+  const care=document.getElementById('rescueCare').value.trim()||'なし';
+  const now=new Date();
+  const request={
+    id:'MAMO-'+now.getTime(),
+    time:now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}),
+    requester:name,
+    location:'〇〇地区付近',
+    distance:'約150m先（デモ）',
+    detail:detail,
+    considerations:care,
+    status:'未対応'
+  };
+  localStorage.setItem('mamo_latest_rescue',JSON.stringify(request));
+
+  const client=getSupabaseClient();
+  if(client){
+    client.from('rescue_requests').insert([{
+      request_id:request.id,
+      created_at:now.toISOString(),
+      user_name:name,
+      requester_name:name,
+      request_type:'救助要請',
+      detail:detail,
+      rescue_details:detail,
+      health_condition:care,
+      consideration:care,
+      considerations:care,
+      location:request.location,
+      location_text:request.location,
+      distance:request.distance,
+      distance_text:request.distance,
+      status:'未対応'
+    }]).then(({error})=>{
+      if(error){
+        console.error('MAMO送信エラー',error);
+        toast('送信に失敗しました。自治体画面には届いていません');
+      }else{
+        toast('自治体へ救助要請を送信しました');
+      }
+    });
+  }else{
+    toast('デモ送信（Supabase未接続）');
+  }
+
+  document.getElementById('sentSummary').innerHTML=
+    '受付番号：<b>'+request.id+'</b><br>'+    '時刻：'+request.time+'<br>'+    '名前：'+escapeHtml(name)+'<br>'+    '場所：'+request.location+'<br>'+    '内容：'+escapeHtml(detail);
+  show('rescueSent');
+}
+function requesterNameSafe(s){return String(s).slice(0,80)}
+function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+
 function toast(msg){
   const el=document.getElementById('toast'); el.textContent=msg; el.style.display='block';
   clearTimeout(window._t); window._t=setTimeout(()=>el.style.display='none',1800);
