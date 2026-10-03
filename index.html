@@ -258,6 +258,24 @@ function submitRescue(){
 
   const client=getSupabaseClient();
   if(client){
+console.log([{
+      request_id:request.id,
+      created_at:now.toISOString(),
+      user_name:name,
+      requester_name:name,
+      request_type:'救助要請',
+      detail:detail,
+      rescue_details:detail,
+      health_condition:care,
+      consideration:care,
+      considerations:care,
+      location:request.location,
+      location_text:request.location,
+      distance:request.distance,
+      distance_text:request.distance,
+      status:'未対応'
+    }]);
+    
     client.from('rescue_requests').insert([{
       request_id:request.id,
       created_at:now.toISOString(),
