@@ -6,7 +6,18 @@ alter table public.rescue_requests
   add column if not exists request_type text,
   add column if not exists detail text,
   add column if not exists consideration text,
-  add column if not exists request_id text;
+  add column if not exists request_id text,
+  add column if not exists created_at timestamptz default now(),
+  add column if not exists user_name text,
+  add column if not exists requester_name text,
+  add column if not exists rescue_details text,
+  add column if not exists health_condition text,
+  add column if not exists considerations text,
+  add column if not exists location text,
+  add column if not exists location_text text,
+  add column if not exists distance text,
+  add column if not exists distance_text text,
+  add column if not exists status text;
 
 alter publication supabase_realtime
   add table public.rescue_requests;
